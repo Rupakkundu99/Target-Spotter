@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy python -c ' *)",
+      "Bash(grep -v \"pygame community\\\\|https://\\\\|Hello from\\\\|pkg_resources\")",
+      "Bash(ls .venv/Scripts/python*)",
+      "Bash(ls .venv/bin/python*)",
+      "Bash(.venv/Scripts/python.exe -c ' *)"
+    ]
+  }
+}

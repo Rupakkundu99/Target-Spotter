@@ -1,0 +1,15 @@
+# --- Phase 1 (required now): mic capture + onset detection ---
+numpy>=1.24
+sounddevice>=0.4.6      # built-in mic capture; needs PortAudio (bundled in wheels)
+
+# --- Phase 2+ (game loop, rendering, spatial audio) ---
+pygame>=2.5
+torch>=2.0.0
+
+
+# --- Option A turning (voice keyword spotting), wire in during Phase 4 ---
+# pvporcupine>=3.0
+
+# --- Option B (webcam hand-direction), Phase 5 ---
+# opencv-python>=4.8
+# mediapipe>=0.10

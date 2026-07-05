@@ -1,0 +1,113 @@
+"""Procedural placeholder sounds (numpy → int16 mono).
+
+These stand in for real audio assets so the game is audible immediately. They're
+intentionally simple and *loop-seamless* where it matters: the looping ambient
+uses a sin² envelope over one full cycle, so its amplitude is zero at both ends
+and repeats without a click.
+
+Both the asset generator (`tools/gen_assets.py`) and the runtime fallback in
+`SpatialMixer` use these, so a missing .wav never crashes the game — you just get
+the placeholder tone until a real asset is dropped in.
+"""
+
+from __future__ import annotations
+
+import numpy as np
+
+from blind_hunter import config
+
+SR = config.SAMPLE_RATE
+
+
+def _t(duration: float) -> np.ndarray:
+    return np.linspace(0.0, duration, int(SR * duration), endpoint=False)
+
+
+def to_int16(mono: np.ndarray, peak: float = 0.9) -> np.ndarray:
+    """Normalize a float waveform to a peak and convert to int16."""
+    m = np.max(np.abs(mono)) or 1.0
+    return np.ascontiguousarray((mono / m * peak * 32767).astype(np.int16))
+
+
+def _noise(n: int, seed: int) -> np.ndarray:
+    # Deterministic noise (no global RNG — the workflow/runtime forbids it and
+    # deterministic assets are nicer anyway).
+    rng = np.random.RandomState(seed)
+    return rng.uniform(-1.0, 1.0, n)
+
+
+def prey_breath(duration: float = 2.4) -> np.ndarray:
+    """Slow breathing swell — loop-seamless (sin² envelope, zero at both ends)."""
+    t = _t(duration)
+    env = np.sin(np.pi * t / duration) ** 2
+    # Airy content: low sine + a touch of filtered noise.
+    tone = 0.6 * np.sin(2 * np.pi * 190 * t)
+    breath = 0.4 * _smooth(_noise(t.size, 11), 220)
+    return to_int16(env * (tone + breath), peak=0.7)
+
+
+def prey_startle(duration: float = 0.35) -> np.ndarray:
+    """Short upward chirp for the alert state."""
+    t = _t(duration)
+    freq = np.linspace(400, 900, t.size)
+    env = np.exp(-t * 9)
+    return to_int16(env * np.sin(2 * np.pi * freq * t), peak=0.8)
+
+
+def steps(duration: float = 0.5, thump_hz: float = 130.0) -> np.ndarray:
+    """A couple of soft footfall thumps."""
+    t = _t(duration)
+    sig = np.zeros(t.size)
+    for onset in (0.02, 0.28):
+        idx = t >= onset
+        local = t - onset
+        sig += np.where(idx, np.exp(-local * 30) * np.sin(2 * np.pi * thump_hz * local), 0.0)
+    return to_int16(sig, peak=0.7)
+
+
+def predator_growl(duration: float = 2.0) -> np.ndarray:
+    """Low, uneasy rumble — loop-seamless."""
+    t = _t(duration)
+    env = np.sin(np.pi * t / duration) ** 2
+    rumble = np.sin(2 * np.pi * 70 * t) + 0.5 * np.sin(2 * np.pi * 104 * t)
+    grit = 0.5 * _smooth(_noise(t.size, 7), 120)
+    return to_int16(env * (rumble + grit), peak=0.8)
+
+
+def predator_alert(duration: float = 0.5) -> np.ndarray:
+    """A menacing downward snarl."""
+    t = _t(duration)
+    freq = np.linspace(300, 90, t.size)
+    env = np.exp(-t * 4)
+    return to_int16(env * (np.sin(2 * np.pi * freq * t) + 0.3 * _noise(t.size, 3)), peak=0.9)
+
+
+def heartbeat(duration: float = 0.5) -> np.ndarray:
+    """A single 'lub-dub' pulse, retriggered per beat by the Heartbeat module."""
+    t = _t(duration)
+    sig = np.zeros(t.size)
+    for onset, gain, hz in ((0.0, 1.0, 62.0), (0.16, 0.75, 55.0)):
+        local = t - onset
+        idx = t >= onset
+        sig += np.where(idx, gain * np.exp(-local * 22) * np.sin(2 * np.pi * hz * local), 0.0)
+    return to_int16(sig, peak=0.95)
+
+
+def _smooth(x: np.ndarray, window: int) -> np.ndarray:
+    """Cheap moving-average low-pass to take the edge off white noise."""
+    if window <= 1:
+        return x
+    kernel = np.ones(window) / window
+    return np.convolve(x, kernel, mode="same")
+
+
+# Maps the AudioProfile filenames used in level JSON to a generator.
+GENERATORS = {
+    "prey_breath.wav": prey_breath,
+    "prey_startle.wav": prey_startle,
+    "prey_steps.wav": steps,
+    "predator_growl.wav": predator_growl,
+    "predator_alert.wav": predator_alert,
+    "predator_steps.wav": lambda: steps(thump_hz=95.0),
+    "heartbeat.wav": heartbeat,
+}

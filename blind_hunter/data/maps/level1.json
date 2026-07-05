@@ -1,0 +1,31 @@
+{
+  "name": "Level 1 — First Blood",
+  "width": 32,
+  "height": 32,
+  "player_start": [16, 16],
+  "extraction": [2, 2],
+  "walls": [],
+  "prey_spawns": [[8, 24], [24, 8]],
+  "predator_spawns": [[28, 28]],
+  "required_prey": 1,
+  "entities": {
+    "prey": {
+      "hearing_radius": 8.0,
+      "speed": 1.2,
+      "audio": {
+        "idle_sound": "assets/audio/prey_breath.wav",
+        "alert_sound": "assets/audio/prey_startle.wav",
+        "move_sound": "assets/audio/prey_steps.wav"
+      }
+    },
+    "predator": {
+      "hearing_radius": 12.0,
+      "speed": 1.0,
+      "audio": {
+        "idle_sound": "assets/audio/predator_growl.wav",
+        "alert_sound": "assets/audio/predator_alert.wav",
+        "move_sound": "assets/audio/predator_steps.wav"
+      }
+    }
+  }
+}
