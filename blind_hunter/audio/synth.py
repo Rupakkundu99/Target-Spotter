@@ -37,13 +37,14 @@ def _noise(n: int, seed: int) -> np.ndarray:
 
 
 def prey_breath(duration: float = 2.4) -> np.ndarray:
-    """Slow breathing swell — loop-seamless (sin² envelope, zero at both ends)."""
+    """Slow breathing swell with wheezing texture — loop-seamless."""
     t = _t(duration)
     env = np.sin(np.pi * t / duration) ** 2
-    # Airy content: low sine + a touch of filtered noise.
-    tone = 0.6 * np.sin(2 * np.pi * 190 * t)
+    # Airy content: low sine + slightly raspy frequency modulation
+    tone = 0.5 * np.sin(2 * np.pi * 190 * t + 0.3 * np.sin(2 * np.pi * 5 * t))
+    wheeze = 0.2 * np.sin(2 * np.pi * 380 * t)
     breath = 0.4 * _smooth(_noise(t.size, 11), 220)
-    return to_int16(env * (tone + breath), peak=0.7)
+    return to_int16(env * (tone + wheeze + breath), peak=0.7)
 
 
 def prey_startle(duration: float = 0.35) -> np.ndarray:
@@ -66,12 +67,14 @@ def steps(duration: float = 0.5, thump_hz: float = 130.0) -> np.ndarray:
 
 
 def predator_growl(duration: float = 2.0) -> np.ndarray:
-    """Low, uneasy rumble — loop-seamless."""
+    """Low, guttural menacing rumble with tremolo — loop-seamless."""
     t = _t(duration)
     env = np.sin(np.pi * t / duration) ** 2
-    rumble = np.sin(2 * np.pi * 70 * t) + 0.5 * np.sin(2 * np.pi * 104 * t)
-    grit = 0.5 * _smooth(_noise(t.size, 7), 120)
-    return to_int16(env * (rumble + grit), peak=0.8)
+    # Sub-bass + dissonant rumble with 5 Hz amplitude modulation (tremolo)
+    tremolo = 0.7 + 0.3 * np.sin(2 * np.pi * 5.0 * t)
+    rumble = np.sin(2 * np.pi * 55 * t) + 0.6 * np.sin(2 * np.pi * 83 * t) + 0.4 * np.sin(2 * np.pi * 110 * t)
+    grit = 0.6 * _smooth(_noise(t.size, 7), 120)
+    return to_int16(env * tremolo * (rumble + grit), peak=0.85)
 
 
 def predator_alert(duration: float = 0.5) -> np.ndarray:
@@ -93,6 +96,16 @@ def heartbeat(duration: float = 0.5) -> np.ndarray:
     return to_int16(sig, peak=0.95)
 
 
+def ambient_drone(duration: float = 6.0) -> np.ndarray:
+    """Continuous low-volume dark atmospheric drone — loop-seamless."""
+    t = _t(duration)
+    env = np.sin(np.pi * t / duration) ** 2
+    # Deep sub-bass rumble + eerie dissonant harmonics
+    drone = 0.5 * np.sin(2 * np.pi * 55 * t) + 0.3 * np.sin(2 * np.pi * 82.5 * t) + 0.2 * np.sin(2 * np.pi * 110 * t)
+    wind = 0.4 * _smooth(_noise(t.size, 42), 300)
+    return to_int16(env * (drone + wind), peak=0.45)
+
+
 def _smooth(x: np.ndarray, window: int) -> np.ndarray:
     """Cheap moving-average low-pass to take the edge off white noise."""
     if window <= 1:
@@ -110,4 +123,6 @@ GENERATORS = {
     "predator_alert.wav": predator_alert,
     "predator_steps.wav": lambda: steps(thump_hz=95.0),
     "heartbeat.wav": heartbeat,
+    "ambient_drone.wav": ambient_drone,
 }
+

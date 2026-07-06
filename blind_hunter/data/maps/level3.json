@@ -1,0 +1,44 @@
+{
+  "name": "Level 3 — The Hunting Grounds",
+  "width": 36,
+  "height": 36,
+  "player_start": [18, 18],
+  "extraction": [3, 33],
+  "walls": [
+    [8, 8], [9, 8], [8, 9], [9, 9],
+    [26, 8], [27, 8], [26, 9], [27, 9],
+    [8, 26], [9, 26], [8, 27], [9, 27],
+    [26, 26], [27, 26], [26, 27], [27, 27],
+    [14, 14], [15, 14], [14, 15],
+    [21, 14], [20, 14], [21, 15],
+    [14, 21], [15, 21], [14, 20],
+    [21, 21], [20, 21], [21, 20],
+    [18, 10], [18, 11], [18, 12],
+    [18, 23], [18, 24], [18, 25],
+    [10, 18], [11, 18], [12, 18],
+    [23, 18], [24, 18], [25, 18]
+  ],
+  "prey_spawns": [[6, 6], [30, 6], [30, 30], [6, 30]],
+  "predator_spawns": [[3, 3], [33, 33], [33, 3]],
+  "required_prey": 3,
+  "entities": {
+    "prey": {
+      "hearing_radius": 10.0,
+      "speed": 1.4,
+      "audio": {
+        "idle_sound": "assets/audio/prey_breath.wav",
+        "alert_sound": "assets/audio/prey_startle.wav",
+        "move_sound": "assets/audio/prey_steps.wav"
+      }
+    },
+    "predator": {
+      "hearing_radius": 15.0,
+      "speed": 1.25,
+      "audio": {
+        "idle_sound": "assets/audio/predator_growl.wav",
+        "alert_sound": "assets/audio/predator_alert.wav",
+        "move_sound": "assets/audio/predator_steps.wav"
+      }
+    }
+  }
+}

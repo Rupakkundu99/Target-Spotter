@@ -29,6 +29,18 @@ def apply_clap(world: World, event: ClapEvent, now: float) -> None:
     player = world.player
     import math
 
+    # ── Rotate facing based on the clap's resolved direction ──────────
+    # Option B (webcam) produces LEFT / RIGHT / BACK / FORWARD.
+    # Option A (keyboard arrows) always produces FORWARD; turning is
+    # handled separately by arrow keys, so this block is a no-op for it.
+    if event.direction is Direction.LEFT:
+        player.facing -= config.TURN_DEGREES
+    elif event.direction is Direction.RIGHT:
+        player.facing += config.TURN_DEGREES
+    elif event.direction is Direction.BACK:
+        player.facing += 180
+    # FORWARD → no rotation; keep current facing.
+
     sound_type = getattr(event, "sound_type", "clap")
 
     # Determine movement step size and noise intensity based on sound type
@@ -53,19 +65,14 @@ def apply_clap(world: World, event: ClapEvent, now: float) -> None:
     # Register the sound event for AI detection
     noise_mod.register_clap(world, event.intensity * noise_scale, now)
 
-    # Double-clap near prey = capture attempt.
+    # Double-clap sound near prey = capture attempt.
     if event.is_double:
         _attempt_capture(world)
 
 
 
-def _attempt_capture(world: World) -> None:
-    """Capture the nearest prey within CAPTURE_RANGE of the player, if any.
-
-    A double-clap grabs at most one prey (the closest), removing it from the
-    world and bumping the player's tally. Reaching the extraction point with the
-    quota met is what actually wins — that's checked in `_check_end_conditions`.
-    """
+def _attempt_capture(world: World) -> bool:
+    """Capture the nearest prey within CAPTURE_RANGE of the player, if any."""
     player_pos = world.player.position
     in_range = [
         ent
@@ -74,11 +81,13 @@ def _attempt_capture(world: World) -> None:
         and distance(ent.position, player_pos) <= config.CAPTURE_RANGE
     ]
     if not in_range:
-        return
+        return False
 
     target = min(in_range, key=lambda e: distance(e.position, player_pos))
     world.entities.remove(target)
     world.player.prey_captured += 1
+    print(f"[CAPTURE SUCCESS!] Prey caught ({world.player.prey_captured}/{world.required_prey})! Now head to the green extraction gate!")
+    return True
 
 
 def update_world(world: World, now: float, dt: float) -> None:

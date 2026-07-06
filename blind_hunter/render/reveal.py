@@ -34,18 +34,26 @@ from blind_hunter.render.camera import Camera
 class Reveal:
     """A single active reveal flash."""
 
-    center: tuple[int, int]   # screen-space center (pixels)
-    radius: float             # pixels
+    world_center: tuple[float, float] # world-space center
+    radius: float                     # base pixels at zoom=1.0
     started_at: float
     sound_type: str = "clap"
     facing_deg: float = 0.0
 
     def alpha(self, now: float) -> float:
-        """0..1 brightness; fades linearly to 0 over the fade window."""
+        """0..1 brightness; fades linearly to 0 over the primary fade window."""
         elapsed = now - self.started_at
         if elapsed >= config.REVEAL_FADE_SECONDS:
             return 0.0
         return 1.0 - (elapsed / config.REVEAL_FADE_SECONDS)
+
+    def ghost_alpha(self, now: float) -> float:
+        """0..1 brightness for the lingering afterimage ghost."""
+        elapsed = now - self.started_at
+        max_dur = config.REVEAL_FADE_SECONDS * getattr(config, "AFTERIMAGE_DURATION_MULT", 2.5)
+        if elapsed >= max_dur:
+            return 0.0
+        return (1.0 - (elapsed / max_dur)) * 0.28
 
 
 def radius_for_intensity(intensity: float) -> float:
@@ -55,15 +63,22 @@ def radius_for_intensity(intensity: float) -> float:
 
 
 def _build_gradient_sprite(radius: int):
-    """White-center → black-edge radial gradient as an RGB pygame Surface."""
+    """White-center → black-edge radial gradient with jagged organic edges."""
     import pygame
 
     d = radius * 2
-    yy, xx = np.ogrid[:d, :d]
-    dist = np.sqrt((xx - radius) ** 2 + (yy - radius) ** 2)
-    val = np.clip(1.0 - dist / radius, 0.0, 1.0) ** config.REVEAL_FALLOFF_POWER
+    xx, yy = np.ogrid[:d, :d]
+    cx, cy = radius, radius
+    dist = np.sqrt((xx - cx) ** 2 + (yy - cy) ** 2)
+    
+    # Add angular noise / ripple to distance for organic jagged edges
+    angle = np.arctan2(yy - cy, xx - cx)
+    ripple = np.sin(angle * 11.0) * (radius * 0.06) + np.cos(angle * 17.0) * (radius * 0.04)
+    dist_rippled = np.maximum(0.0, dist + ripple)
+    
+    val = np.clip(1.0 - dist_rippled / radius, 0.0, 1.0) ** config.REVEAL_FALLOFF_POWER
     arr = (val * 255).astype(np.uint8)
-    rgb = np.dstack([arr, arr, arr])  # surfarray indexes [x][y]; gradient is symmetric
+    rgb = np.ascontiguousarray(np.dstack([arr, arr, arr]))
     surf = pygame.Surface((d, d))
     pygame.surfarray.blit_array(surf, rgb)
     return surf
@@ -106,7 +121,7 @@ class RevealRenderer:
 
         self._reveals.append(
             Reveal(
-                center=self.camera.to_screen(world_center),
+                world_center=world_center,
                 radius=radius,
                 started_at=now,
                 sound_type=sound_type,
@@ -174,48 +189,65 @@ class RevealRenderer:
         import pygame
 
         mask = self._mask
-        assert mask is not None
+        assert mask is not None and self.camera is not None
         mask.fill((config.AMBIENT_LIGHT,) * 3)
 
         alive: list[Reveal] = []
+        zoom_mult = getattr(self.camera, "zoom", 1.0)
+
         for r in self._reveals:
-            a = r.alpha(now)
-            if a <= 0.0:
+            ghost_a = r.ghost_alpha(now)
+            if ghost_a <= 0.0:
                 continue
             alive.append(r)
-            rad = max(1, int(r.radius))
+            
+            screen_center = self.camera.to_screen(r.world_center)
+            rad = max(1, int(r.radius * zoom_mult))
             sprite = pygame.transform.smoothscale(self._gradient, (rad * 2, rad * 2))
             
             # Apply directional cone if this is a "ping" (whistle / tongue click)
             if r.sound_type == "ping":
-                # Create a black mask surface for the cone
                 cone_mask = pygame.Surface((rad * 2, rad * 2))
                 half_angle = config.PING_CONE_ANGLE / 2.0
                 heading_rad = math.radians(r.facing_deg)
                 
-                # Build sector polygon points (radial fan)
                 num_pts = 12
                 pts = [(rad, rad)]
                 for i in range(num_pts + 1):
-                    # Interp angles from -half_angle to +half_angle
                     ang = heading_rad + math.radians(-half_angle + i * (2.0 * half_angle / num_pts))
-                    dist = rad * 1.5  # extend slightly beyond radius to be safe
+                    dist = rad * 1.5
                     px = rad + math.cos(ang) * dist
                     py = rad + math.sin(ang) * dist
                     pts.append((px, py))
                 
-                # Draw the white visibility cone onto the black mask
                 pygame.draw.polygon(cone_mask, (255, 255, 255), pts)
-                # Multiply sprite by the cone mask so only the sector remains
                 sprite.blit(cone_mask, (0, 0), special_flags=pygame.BLEND_MULT)
 
-            dim = int(255 * a)
-            sprite.fill((dim, dim, dim), special_flags=pygame.BLEND_MULT)
-            mask.blit(
-                sprite,
-                (r.center[0] - rad, r.center[1] - rad),
-                special_flags=pygame.BLEND_ADD,
-            )
+            primary_a = r.alpha(now)
+            if primary_a > 0.0:
+                # Primary reveal: cold white-blue warming to amber/orange as it fades
+                dim_r = int(255 * primary_a)
+                dim_g = int((180 * primary_a + 75) * primary_a)
+                dim_b = int((100 * primary_a + 30) * primary_a)
+                primary_sprite = sprite.copy()
+                primary_sprite.fill((dim_r, dim_g, dim_b), special_flags=pygame.BLEND_MULT)
+                mask.blit(
+                    primary_sprite,
+                    (screen_center[0] - rad, screen_center[1] - rad),
+                    special_flags=pygame.BLEND_ADD,
+                )
+            elif ghost_a > 0.0:
+                # Afterimage ghost: faint eerie greenish/cyan tint
+                dim_r = int(80 * ghost_a)
+                dim_g = int(150 * ghost_a)
+                dim_b = int(130 * ghost_a)
+                sprite.fill((dim_r, dim_g, dim_b), special_flags=pygame.BLEND_MULT)
+                mask.blit(
+                    sprite,
+                    (screen_center[0] - rad, screen_center[1] - rad),
+                    special_flags=pygame.BLEND_ADD,
+                )
+
         self._reveals = alive
 
     # -- frame ----------------------------------------------------------------

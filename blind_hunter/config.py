@@ -20,12 +20,12 @@ RING_BUFFER_BLOCKS = 64      # how many blocks the capture ring buffer holds
 CALIBRATION_SECONDS = 1.0        # ambient sampling window at startup
 NOISE_FLOOR_ALPHA = 0.995        # EMA smoothing for the adaptive floor (per block)
 TRIGGER_FACTOR = 6.0             # energy must exceed floor * this to count
-MIN_TRIGGER_RMS = 0.01           # absolute floor so dead-silent rooms don't false-fire
+MIN_TRIGGER_RMS = 0.0002         # absolute floor so dead-silent rooms don't false-fire
 REFRACTORY_SECONDS = 0.18        # debounce: ignore new claps within this window
 DOUBLE_CLAP_WINDOW = 0.45        # two claps inside this = a "double clap" action
 
 # Intensity mapping: peak RMS is normalized against this to produce 0..1.
-INTENSITY_REFERENCE_RMS = 0.35   # RMS considered a "full strength" clap
+INTENSITY_REFERENCE_RMS = 0.04   # RMS considered a "full strength" clap
 
 # ---------------------------------------------------------------------------
 # Game loop
@@ -143,7 +143,47 @@ PREDATOR_PATROL_SPEED_FACTOR = 0.55
 AI_ARRIVE_DISTANCE = 0.6
 
 # Double-clap capture: a prey within this range of the player is caught.
-CAPTURE_RANGE = 1.5
+CAPTURE_RANGE = 3.0
 # Reaching within this range of the extraction point (with the prey quota met)
 # wins the run.
-EXTRACTION_RANGE = 1.5
+EXTRACTION_RANGE = 3.0
+
+# ---------------------------------------------------------------------------
+# Horror rendering & Post-FX (Phase 6A)
+# ---------------------------------------------------------------------------
+FILM_GRAIN_INTENSITY = 0.08  # intensity of random noise grain
+VIGNETTE_STRENGTH = 0.55     # radial darkening towards edges
+SCANLINE_OPACITY = 0.12      # opacity of horizontal CRT scanlines
+SCREEN_SHAKE_DECAY = 0.85    # multiplier per frame for screen shake damping
+SCREEN_SHAKE_CLAP = 4.0      # shake pixels on normal clap
+SCREEN_SHAKE_ATTACK = 20.0   # shake pixels on predator attack / game over
+CHROMATIC_ABERRATION_PX = 2  # RGB channel shift distance in pixels
+AFTERIMAGE_DURATION_MULT = 2.5 # how much longer ghost afterimages linger vs primary reveal
+
+# Camera
+CAMERA_ZOOM = 1.8            # zoom factor for claustrophobic horror feel
+CAMERA_LERP_SPEED = 0.12     # smoothing factor for camera tracking player
+
+# Entity visuals
+PREDATOR_EYE_GLOW_RADIUS = 4
+PREDATOR_TRAIL_PARTICLES = 8
+PREY_TWITCH_FREQUENCY = 3.0  # Hz for twitch animation
+PLAYER_PULSE_FREQUENCY = 0.8 # Hz for player breathing/pulse
+
+# Particle system
+MAX_PARTICLES = 250
+DUST_SPAWN_RATE = 0.4        # probability per frame of spawning floating dust
+FOOTPRINT_FADE_SECONDS = 8.0 # duration footprint traces remain visible
+
+# ---------------------------------------------------------------------------
+# Webcam direction tracking (Phase 5 / Option B)
+# ---------------------------------------------------------------------------
+WEBCAM_ENABLED = True           # attempt webcam tracking; falls back if unavailable
+WEBCAM_FPS = 15                 # target FPS for hand tracking (lower = less CPU)
+WEBCAM_DEVICE_INDEX = 0         # cv2.VideoCapture device index
+WEBCAM_DEBUG_WINDOW = True     # show a debug OpenCV window with hand landmarks
+WEBCAM_MIN_DETECTION_CONFIDENCE = 0.6   # MediaPipe hand detection confidence
+WEBCAM_MIN_TRACKING_CONFIDENCE = 0.5    # MediaPipe hand tracking confidence
+WEBCAM_DIRECTION_DEADZONE = 0.04        # ignore very small pointing offsets (normalized)
+
+

@@ -89,6 +89,7 @@ class ClapSource(InputSource):
         self.detector.calibrate(ambient)
 
     def _run(self) -> None:
+        _debug_counter = 0
         while self._running.is_set():
             block = self.capture.read(timeout=0.25)
             if block is None:
@@ -99,6 +100,15 @@ class ClapSource(InputSource):
             self._history[-len(block):] = block
 
             now = time.monotonic()
+            
+            # Debug: print energy levels every ~2 seconds (roughly every 100 blocks)
+            _debug_counter += 1
+            if _debug_counter % 100 == 0:
+                from blind_hunter.input.onset_detection import rms
+                energy = rms(block)
+                trigger = max(self.detector.noise_floor * config.TRIGGER_FACTOR, config.MIN_TRIGGER_RMS)
+                print(f"[mic-debug] energy={energy:.6f}  floor={self.detector.noise_floor:.6f}  trigger={trigger:.6f}")
+            
             onset = self.detector.process(block, now)
             if onset is None:
                 continue
@@ -143,10 +153,12 @@ class ClapSource(InputSource):
                 except Exception as exc:
                     print(f"[clap_source] Classification error: {exc}")
 
-            # Ignore false triggers (background noise)
+            # Classifier said "background" but the onset detector DID fire
+            # (there was a real energy spike). Trust the onset detector and
+            # default to "clap" — the classifier may not match real-world sounds.
             if sound_type == "background":
-                print("[clap_source] Filtered background noise false-trigger.")
-                continue
+                print("[clap_source] Classifier said background, but onset fired — treating as clap.")
+                sound_type = "clap"
 
             print(f"[clap_source] Classified: {sound_type} (intensity={onset.intensity:.2f})")
 

@@ -12,8 +12,9 @@ an onset fires, so the game never learns which scheme is active.
   is in the webcam frame (left / center / right) at clap time. Stubbed for
   Phase 5.
 """
-
 from __future__ import annotations
+
+from blind_hunter.input.webcam_tracker import WebcamTracker
 
 import abc
 
@@ -46,18 +47,17 @@ class VoiceCommandResolver(DirectionResolver):
 
 
 class WebcamHandResolver(DirectionResolver):
-    """Option B stub: map latest webcam hand position to a Direction.
+    """Option B: direction comes from webcam hand-tracking at clap time.
 
-    Phase 5 wires a MediaPipe Hands thread that updates `self.latest_zone` with
-    'left' / 'center' / 'right'. Until then it behaves like ForwardResolver.
+    The ``WebcamTracker`` runs a background thread updating its
+    ``latest_direction`` continuously.  At clap time the resolver simply
+    reads that value — zero latency on the game thread.
     """
 
-    def __init__(self) -> None:
-        self.latest_zone: str = "center"
+    def __init__(self, tracker: "WebcamTracker") -> None:  # noqa: F821
+        from blind_hunter.input.webcam_tracker import WebcamTracker as _WT  # type check
+
+        self._tracker: _WT = tracker
 
     def resolve(self) -> Direction:
-        return {
-            "left": Direction.LEFT,
-            "right": Direction.RIGHT,
-            "center": Direction.FORWARD,
-        }.get(self.latest_zone, Direction.FORWARD)
+        return self._tracker.latest_direction

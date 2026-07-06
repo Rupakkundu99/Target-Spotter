@@ -20,7 +20,8 @@ def update(entity: Entity, world: World, now: float, dt: float) -> None:
         entity.position, world, now, entity.hearing_radius
     )
 
-    if heard is not None:
+    # Only get scared if the sound is louder than a stealth step (intensity > 0.25)
+    if heard is not None and heard.intensity > 0.25:
         # Remember where the scare came from so we can flee directly away.
         entity.last_heard = heard.position
         if entity.state == AIState.IDLE:

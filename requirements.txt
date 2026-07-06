@@ -11,5 +11,5 @@ torch>=2.0.0
 # pvporcupine>=3.0
 
 # --- Option B (webcam hand-direction), Phase 5 ---
-# opencv-python>=4.8
-# mediapipe>=0.10
+opencv-python>=4.8
+mediapipe>=0.10
